@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小轉盤</title>
+<style>
+:root{--bg:#f5f6fa;--panel:#fff;--text:#1f2430;--muted:#8a90a0;--line:#e4e7ee;--accent:#4f6df5;--field:#f1f3f8;--sep:#fff;--ptr:#222;--ptr-line:#fff;--hub:#fff;--hub-line:#999;color-scheme:light}
+:root[data-theme="dark"]{--bg:#14161c;--panel:#1d2028;--text:#e8eaf0;--muted:#7d8496;--line:#2b2f3a;--accent:#6f8bff;--field:#262a35;--sep:#14161c;--ptr:#f1f3f8;--ptr-line:#14161c;--hub:#2b2f3a;--hub-line:#6f7690;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;user-select:none;overflow:auto}
+.app{display:flex;height:100%;gap:16px;padding:16px;min-width:560px;min-height:560px}
+.stage{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center}
+.wheelbox{flex:1;min-height:0;width:100%;display:grid;place-items:center}
+.stack{position:relative;overflow:hidden;cursor:pointer}.stack canvas{position:absolute;left:0;top:0}#cv{will-change:transform}#ov{pointer-events:none}
+.result{height:44px;font-size:24px;font-weight:700;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+aside{width:310px;flex:none;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0;overflow-y:auto}
+.head{display:flex;align-items:center;gap:8px}
+.head b{font-size:15px}.head span{color:var(--muted);font-size:12px}
+input[type=text]{width:100%;border:1px solid transparent;background:var(--field);color:var(--text);border-radius:8px;padding:8px 10px;font:inherit;outline:none;user-select:text}
+input[type=text]:focus{border-color:var(--accent)}
+#list{list-style:none;margin:0;padding:0;flex:1;min-height:80px;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.item{display:flex;align-items:center;gap:8px}
+.item .dot{width:12px;height:12px;border-radius:50%;flex:none}
+.item input[type=text]{flex:1;min-width:0;padding:6px 8px}
+.item.off .dot{opacity:.3}
+.item.off input[type=text]{color:var(--muted);text-decoration:line-through}
+.item button{border:0;background:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;width:26px;height:26px;line-height:1}
+.item button:hover{background:var(--field);color:#e5484d}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;flex:none;margin:0}
+.opts{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.opts label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.opts small{color:var(--muted)}
+.btns{display:flex;gap:8px}
+button.main{flex:1;border:0;border-radius:10px;background:var(--accent);color:#fff;font-weight:600;font-size:16px;font-family:inherit;padding:11px;cursor:pointer}
+button.main:disabled{opacity:.5;cursor:default}
+button.ghost{border:1px solid var(--line);background:none;color:var(--text);border-radius:10px;padding:0 12px;font:inherit;cursor:pointer}
+.locked{pointer-events:none;opacity:.55}
+@media (max-width:760px){.app{flex-direction:column}aside{width:100%;max-height:48%}}
+.seg{display:flex;gap:2px;background:var(--field);border-radius:8px;padding:2px;margin-left:auto}
+.seg button{border:0;background:none;border-radius:6px;padding:1px 6px;cursor:pointer;font-size:14px;line-height:1.5}
+.seg button.on{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+#pal{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.chip{border:2px solid transparent;background:var(--field);color:var(--text);border-radius:10px;padding:6px;cursor:pointer;font:inherit;font-size:12px;display:flex;flex-direction:column;gap:4px;align-items:stretch}
+.chip.sel{border-color:var(--accent)}
+.strip{display:flex;height:10px;border-radius:5px;overflow:hidden}.strip i{flex:1}
+.stage{position:relative}
+.pill{position:absolute;top:0;left:0;z-index:1;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:5px 12px;font:inherit;cursor:pointer}
+.pill:hover{border-color:var(--accent)}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:300px;max-width:100%;background:var(--panel);border-right:1px solid var(--line);box-shadow:8px 0 24px rgba(0,0,0,.2);padding:14px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;z-index:10;transform:translateX(-105%);visibility:hidden;transition:transform .22s ease,visibility 0s .22s}
+.drawer.open{transform:none;visibility:visible;transition:transform .22s ease,visibility 0s}
+.dhead{display:flex;justify-content:space-between;align-items:center}.dhead b{font-size:15px}
+.dhead button{border:0;background:none;color:var(--muted);font-size:20px;cursor:pointer;border-radius:6px;width:28px;height:28px}
+.dhead button:hover{background:var(--field)}
+.dlabel{font-size:12px;color:var(--muted);margin-bottom:8px}
+.seg.wide{margin:0}.seg.wide button{flex:1;font-size:13px;padding:6px 4px}
+#custom{margin-top:12px}#custom[hidden]{display:none}
+.swrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sw{width:30px;height:30px;border-radius:8px;border:2px solid var(--line);cursor:pointer;padding:0}
+.sw.sel{outline:2px solid var(--accent);outline-offset:2px}
+.swbtn{width:30px;height:30px;border:1px dashed var(--muted);background:none;color:var(--text);border-radius:8px;cursor:pointer;font-size:16px}
+.ed{display:flex;flex-direction:column;gap:4px;margin-top:14px}
+.rrow{display:grid;grid-template-columns:56px 1fr;align-items:center;font-size:12px;color:var(--muted)}
+.rng{-webkit-appearance:none;appearance:none;width:100%;height:12px;border-radius:6px;outline:none;margin:6px 0;border:1px solid var(--line)}
+.rng::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.4);cursor:pointer}
+.hexrow{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:12px;color:var(--muted)}
+.hexrow input{width:100px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.app{transition:padding-left .22s ease}
+body.side .app{padding-left:332px}
+@media (max-width:1010px){body.side aside{display:none}}
+@media (max-width:760px){body.side .app{padding-left:16px}body.side aside{display:flex}.drawer{top:auto;right:0;width:auto;max-width:none;height:58%;border-right:0;border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(0,0,0,.2);transform:translateY(105%)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="stage">
+    <button class="pill" id="lookBtn" title="外觀與配色">🎨 外觀</button>
+    <div class="wheelbox" id="box"><div class="stack" id="stack"><canvas id="cv"></canvas><canvas id="ov"></canvas></div></div>
+    <div class="result" id="result">點轉盤或按「開始」</div>
+  </section>
+  <aside>
+    <div class="head"><b>選項</b><span id="count"></span></div>
+    <input type="text" id="add" placeholder="輸入後按 Enter 新增（可貼上多行）">
+    <ul id="list"></ul>
+    <div class="opts">
+      <label><input type="checkbox" id="rm"><span>轉到後從轉盤移除<br><small>只是暫時取消勾選，不會刪除選項</small></span></label>
+      <label><input type="checkbox" id="skip"><span>跳過動畫</span></label>
+    </div>
+    <div class="btns">
+      <button class="ghost" id="restore" title="把所有選項重新放回轉盤">全部恢復</button>
+      <button class="main" id="spin">開始</button>
+    </div>
+  </aside>
+</div>
+<div class="drawer" id="drawer" aria-hidden="true">
+  <div class="dhead"><b>外觀</b><button id="drawerClose" title="關閉（Esc）">×</button></div>
+  <div>
+    <div class="dlabel">畫面</div>
+    <div class="seg wide" id="theme"><button data-m="auto">🖥️ 跟隨系統</button><button data-m="light">☀️ 日間</button><button data-m="dark">🌙 夜間</button></div>
+  </div>
+  <div id="look">
+    <div class="dlabel">轉盤配色</div>
+    <div id="pal"></div>
+    <div id="custom" hidden></div>
+  </div>
+</div>
+<script>
+const TAU = Math.PI * 2, $ = s => document.querySelector(s);
+const PALETTES = [
+  { id: "vivid",  name: "繽紛", colors: ["#EF476F","#F4A261","#2A9D8F","#118AB2","#9B5DE5","#E76F51","#43AA8B","#577590"] },
+  { id: "pastel", name: "粉彩", colors: ["#F28DA6","#F6B77D","#8FD3B6","#8EC5E8","#B9A3E8","#F2A6A0"] },
+  { id: "ocean",  name: "海洋", colors: ["#03045E","#0077B6","#00B4D8","#48CAE4","#90E0EF","#2A9D8F"] },
+  { id: "sunset", name: "日落", colors: ["#FF595E","#FF924C","#FFCA3A","#C77DFF","#7B2CBF","#E85D75"] },
+  { id: "forest", name: "森林", colors: ["#2D6A4F","#40916C","#52B788","#74C69D","#95D5B2","#8A6F47"] },
+];
+let paletteId = "vivid", custom = ["#FF6B6B", "#FFD93D", "#6BCB77", "#4D96FF"], themeMode = "auto";
+const T = {};                                   // 畫布用的主題色（由 CSS 變數讀入）
+const palette = () => paletteId === "custom" ? custom : PALETTES.find(p => p.id === paletteId).colors;
+function colorAt(i, n) {                        // 依序取色；避免最後一格與第一格同色
+  const m = palette().length; let k = i % m;
+  if (m > 2 && n > 1 && i === n - 1 && k === 0) k = Math.floor(m / 2);
+  return palette()[k];
+}
+
+function textOn(hex) {                          // 依底色亮度選白字或深字
+  const v = parseInt(hex.slice(1), 16), lum = 0.299 * (v >> 16) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255);
+  return "#fff"
+  //return lum > 165 ? "#1b1f2a" : "#fff";
+}
+
+const cv = $("#cv"), ctx = cv.getContext("2d"), ov = $("#ov"), octx = ov.getContext("2d"), stack = $("#stack");
+let uid = 0, size = 400, rot = 0, spinning = false, wheelItems = [];
+const mk = t => ({ id: ++uid, text: t, on: true });
+let items = ["瘋狂瑪吉", "探路者", "邦加羅爾", "直布羅陀", "萬塔捷", "轟哥", "", "", "", "", "", "", "", ""].map(mk);
+const active = () => items.filter(i => i.on && i.text.trim());
+const mod = x => ((x % TAU) + TAU) % TAU;
+
+function syncWheel() { if (!spinning) { wheelItems = active(); draw(); refreshDots(); } }
+function count() { $("#count").textContent = `轉盤上 ${active().length} / 共 ${items.length}`; }
+function setResult(t) { $("#result").textContent = t; }
+
+/* ---------- 選項清單 ---------- */
+function renderList() {
+  const ul = $("#list"); ul.textContent = "";
+  for (const it of items) {
+    const li = document.createElement("li"); li.className = "item" + (it.on ? "" : " off");
+    const cb = Object.assign(document.createElement("input"), { type: "checkbox", checked: it.on, title: "是否出現在轉盤上" });
+    cb.onchange = () => { it.on = cb.checked; li.classList.toggle("off", !it.on); syncWheel(); count(); };
+    const dot = document.createElement("span"); dot.className = "dot"; it._dot = dot;
+    const tx = Object.assign(document.createElement("input"), { type: "text", value: it.text });
+    tx.oninput = () => { it.text = tx.value; syncWheel(); count(); };
+    const del = Object.assign(document.createElement("button"), { textContent: "×", title: "刪除這個選項" });
+    del.onclick = () => { items = items.filter(x => x !== it); renderList(); syncWheel(); };
+    li.append(cb, dot, tx, del); ul.append(li);
+  }
+  count(); refreshDots();
+}
+function addLines(text) {
+  const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (!lines.length) return;
+  items.push(...lines.map(mk)); renderList(); syncWheel();
+  $("#list").scrollTop = 1e9;
+}
+$("#add").addEventListener("keydown", e => { if (e.key === "Enter") { addLines(e.target.value); e.target.value = ""; } });
+$("#add").addEventListener("paste", e => {
+  const t = (e.clipboardData || window.clipboardData).getData("text");
+  if (/\r?\n/.test(t.trim())) { e.preventDefault(); addLines(t); }
+});
+$("#restore").onclick = () => { if (spinning) return; items.forEach(i => i.on = true); renderList(); syncWheel(); };
+
+/* ---------- 繪製 ---------- */
+function resize() {
+  const b = $("#box");
+  size = Math.max(160, Math.floor(Math.min(b.clientWidth, b.clientHeight)));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2, 2000 / size), px = Math.round(size * dpr);
+  stack.style.width = stack.style.height = size + "px";
+  for (const [c, x] of [[cv, ctx], [ov, octx]]) {
+    c.style.width = c.style.height = size + "px"; c.width = c.height = px;
+    x.setTransform(px / size, 0, 0, px / size, 0, 0);
+  }
+  draw();
+}
+let rq = 0;
+new ResizeObserver(() => { cancelAnimationFrame(rq); rq = requestAnimationFrame(resize); }).observe($("#box"));
+
+function paint(c, rot0) {   // 畫轉盤本體（扇形 + 文字）到指定畫布
+  const s = size, cx = s / 2, cy = s / 2, r = s * 0.44, n = wheelItems.length;
+  if (!n) {
+    c.fillStyle = "rgba(128,128,128,.25)"; c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.fill();
+    c.fillStyle = "#888"; c.font = `600 ${s * 0.05}px sans-serif`; c.textAlign = "center";
+    c.fillText("沒有可用的選項", cx, cy);
+  }
+  const step = TAU / (n || 1);
+  wheelItems.forEach((it, i) => {
+    const a0 = -Math.PI / 2 + rot0 + i * step;
+    c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, r, a0, a0 + step); c.closePath();
+    const col = colorAt(i, n); c.fillStyle = col; c.fill();
+    c.lineWidth = Math.max(2, s * 0.006); c.strokeStyle = T.sep; c.stroke();
+    // 文字：沿半徑方向，字級自動縮小以適應
+    c.save(); c.translate(cx, cy); c.rotate(a0 + step / 2);
+    c.textAlign = "right"; c.textBaseline = "middle"; c.fillStyle = textOn(col);
+    let fs = Math.max(10, Math.min(s * 0.055, r * step * 0.45)), t = it.text.trim();
+    const maxW = r * 0.72, setF = () => c.font = `700 ${fs}px system-ui,"PingFang TC","Microsoft JhengHei",sans-serif`;
+    setF();
+    while (c.measureText(t).width > maxW && fs > 10) { fs--; setF(); }
+    while (c.measureText(t).width > maxW && t.length > 1) t = t.slice(0, -2) + "…";
+    c.fillText(t, r * 0.92, 0); c.restore();
+  });
+}
+function chrome(o) {         // 中心圓 + 指針（永遠畫在最上層）
+  const s = size, cx = s / 2, cy = s / 2, r = s * 0.44;
+  o.fillStyle = T.hub; o.strokeStyle = T["hub-line"]; o.lineWidth = 2;
+  o.beginPath(); o.arc(cx, cy, s * 0.04, 0, TAU); o.fill(); o.stroke();
+  o.fillStyle = T.ptr; o.strokeStyle = T["ptr-line"]; o.beginPath();
+  o.moveTo(cx - s * 0.035, s * 0.005); o.lineTo(cx + s * 0.035, s * 0.005);
+  o.lineTo(cx, cy - r + s * 0.035); o.closePath(); o.fill(); o.stroke();
+}
+function draw() {            // 靜止時：向量重畫，文字最清晰
+  ctx.clearRect(0, 0, size, size); paint(ctx, rot);
+  octx.clearRect(0, 0, size, size); chrome(octx);
+}
+
+/* ---------- 轉動 ---------- */
+function lock(on) { spinning = on; $("#spin").disabled = on; $("#list").classList.toggle("locked", on); $("#add").disabled = on; $("#look").classList.toggle("locked", on); }
+
+function spin() {
+  if (spinning) return;
+  syncWheel();
+  const n = wheelItems.length;
+  if (n < 2) { setResult("至少需要 2 個可用選項"); return; }
+  // 先決定結果，再算出要轉到哪個角度
+  const w = Math.floor(Math.random() * n), step = TAU / n, frac = 0.1 + Math.random() * 0.8;
+  const delta = mod(mod(-(w + frac) * step) - rot) + TAU * (4 + Math.floor(Math.random() * 3));
+  const winner = wheelItems[w], r0 = rot;
+  if ($("#skip").checked) { rot = r0 + delta; draw(); finish(winner); return; }
+  lock(true); setResult("轉轉轉…");
+  // 轉盤本體已畫好（角度 = r0），只讓這一層用 CSS 旋轉 delta；曲線等同 easeOutCubic（先快後慢）
+  const anim = cv.animate(
+    [{ transform: "rotate(0rad)" }, { transform: `rotate(${delta}rad)` }],
+    { duration: 4000, easing: "cubic-bezier(.215,.61,.355,1)", fill: "forwards" });
+  anim.onfinish = () => { rot = r0 + delta; anim.cancel(); draw(); finish(winner); };
+}
+function finish(winner) {
+  setResult("🎉 " + winner.text);
+  if ($("#rm").checked) { winner.on = false; renderList(); }  // 只取消勾選；轉盤維持停下的畫面，下次轉動才更新
+  lock(false);
+}
+$("#spin").onclick = spin;
+stack.onclick = spin;
+
+function refreshDots() {                        // 清單前的圓點顏色 = 該選項在轉盤上的顏色
+  for (const it of items) {
+    if (!it._dot) continue;
+    const i = wheelItems.indexOf(it);
+    it._dot.style.background = i < 0 ? "#9aa0ad" : colorAt(i, wheelItems.length);
+  }
+}
+const mq = matchMedia("(prefers-color-scheme: dark)");
+function applyTheme() {
+  const dark = themeMode === "dark" || (themeMode === "auto" && mq.matches);
+  const root = document.documentElement; root.dataset.theme = dark ? "dark" : "light";
+  const cs = getComputedStyle(root);
+  for (const k of ["sep", "ptr", "ptr-line", "hub", "hub-line"]) T[k] = cs.getPropertyValue("--" + k).trim();
+  document.querySelectorAll("#theme button").forEach(b => b.classList.toggle("on", b.dataset.m === themeMode));
+  draw();
+}
+$("#theme").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { themeMode = b.dataset.m; applyTheme(); } });
+mq.addEventListener("change", () => { if (themeMode === "auto") applyTheme(); });
+
+function choose(id) { paletteId = id; renderPalettes(); /*renderCustom();*/ syncWheel(); }
+function renderPalettes() {
+  const box = $("#pal"); box.textContent = "";
+  for (const p of [...PALETTES//, { id: "custom", name: "自訂", colors: custom }
+  ]) {
+    const b = document.createElement("button"); b.className = "chip" + (p.id === paletteId ? " sel" : ""); b.title = p.name;
+    const strip = document.createElement("span"); strip.className = "strip";
+    for (const c of p.colors) { const i = document.createElement("i"); i.style.background = c; strip.append(i); }
+    const nm = document.createElement("span"); nm.textContent = p.name;
+    b.append(strip, nm); b.onclick = () => choose(p.id); box.append(b);
+  }
+}
+let selIdx = 0;
+function hsl2hex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return "#" + [f(0), f(8), f(4)].map(x => Math.round(x * 255).toString(16).padStart(2, "0")).join("");
+}
+function hex2hsl(hex) {
+  const v = parseInt(hex.slice(1), 16), r = (v >> 16) / 255, g = ((v >> 8) & 255) / 255, b = (v & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, l = (mx + mn) / 2;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  let h = 0; if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [Math.round((h * 60 + 360) % 360), Math.round(s * 100), Math.round(l * 100)];
+}
+/*
+function renderCustom() {                        // 最後一個配置：自訂顏色（2～10 色，皆為不透明）
+  const box = $("#custom"); box.hidden = paletteId !== "custom"; box.textContent = "";
+  if (box.hidden) return;
+  selIdx = Math.min(selIdx, custom.length - 1);
+  const el = (tag, cls, props) => Object.assign(Object.assign(document.createElement(tag), { className: cls || "" }), props);
+  const row = el("div", "swrow");
+  custom.forEach((c, i) => {
+    const b = el("button", "sw" + (i === selIdx ? " sel" : ""), { title: "編輯這個顏色" });
+    b.style.background = c; b.onclick = () => { selIdx = i; renderCustom(); }; row.append(b);
+  });
+  const btn = (t, title, fn) => { const b = el("button", "swbtn", { textContent: t, title }); b.onclick = fn; row.append(b); };
+  if (custom.length < 10) btn("＋", "新增顏色", () => { custom.push(hsl2hex(Math.random() * 360, 70, 55)); selIdx = custom.length - 1; choose("custom"); });
+  if (custom.length > 2) btn("－", "移除選取的顏色", () => { custom.splice(selIdx, 1); choose("custom"); });
+
+  const hsl = hex2hsl(custom[selIdx]), cur = () => row.children[selIdx], rng = [], ed = el("div", "ed");
+  const hexIn = el("input", "", { type: "text", maxLength: 7, spellcheck: false, value: custom[selIdx] });
+  const paint = () => {
+    const [h, s, l] = hsl;
+    rng[0].style.background = "linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)";
+    rng[1].style.background = `linear-gradient(90deg,hsl(${h},0%,${l}%),hsl(${h},100%,${l}%))`;
+    rng[2].style.background = `linear-gradient(90deg,#000,hsl(${h},${s}%,50%),#fff)`;
+  };
+  const commit = hex => { custom[selIdx] = hex; cur().style.background = hex; paint(); renderPalettes(); syncWheel(); };
+  [["色相", 360], ["飽和度", 100], ["亮度", 100]].forEach(([name, max], i) => {
+    const r = el("input", "rng", { type: "range", min: 0, max, value: hsl[i] });
+    r.oninput = () => { hsl[i] = +r.value; const hex = hsl2hex(...hsl); hexIn.value = hex; commit(hex); };
+    rng.push(r);
+    const line = el("label", "rrow"); line.append(el("span", "", { textContent: name }), r); ed.append(line);
+  });
+  hexIn.oninput = () => {                        // 只接受 6 位色碼，沒有透明度（8 位）
+    const t = hexIn.value.trim();
+    if (!/^#?[0-9a-f]{6}$/i.test(t)) return;
+    const hex = "#" + t.replace("#", "").toLowerCase();
+    hsl.splice(0, 3, ...hex2hsl(hex)); rng.forEach((r, i) => r.value = hsl[i]); commit(hex);
+  };
+  hexIn.onblur = () => { hexIn.value = custom[selIdx]; };
+  const hr = el("div", "hexrow"); hr.append(el("span", "", { textContent: "色碼" }), hexIn); ed.append(hr);
+  box.append(row, ed); paint();
+}
+*/
+// 外觀側欄：開關
+const drawer = $("#drawer");
+function toggleDrawer(open = !drawer.classList.contains("open")) {
+  drawer.classList.toggle("open", open); drawer.setAttribute("aria-hidden", String(!open));
+  document.body.classList.toggle("side", open);
+}
+$("#lookBtn").onclick = () => toggleDrawer();
+$("#drawerClose").onclick = () => toggleDrawer(false);
+addEventListener("keydown", e => { if (e.key === "Escape") toggleDrawer(false); });
+
+wheelItems = active(); renderList(); renderPalettes(); /*renderCustom();*/ applyTheme(); resize();
+</script>
+</body>
+</html>
