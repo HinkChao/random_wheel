@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小轉盤</title>
+<style>
+:root{--bg:#f5f6fa;--panel:#fff;--text:#1f2430;--muted:#8a90a0;--line:#e4e7ee;--accent:#4f6df5;--field:#f1f3f8;--sep:#fff;--ptr:#222;--ptr-line:#fff;--hub:#fff;--hub-line:#999;color-scheme:light}
+:root[data-theme="dark"]{--bg:#14161c;--panel:#1d2028;--text:#e8eaf0;--muted:#7d8496;--line:#2b2f3a;--accent:#6f8bff;--field:#262a35;--sep:#14161c;--ptr:#f1f3f8;--ptr-line:#14161c;--hub:#2b2f3a;--hub-line:#6f7690;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;user-select:none;overflow:auto}
+.app{display:flex;height:100%;gap:16px;padding:16px;min-width:560px;min-height:560px}
+.stage{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center}
+.wheelbox{flex:1;min-height:0;width:100%;display:grid;place-items:center}
+.stack{position:relative;overflow:hidden;cursor:pointer}.stack canvas{position:absolute;left:0;top:0}#cv{will-change:transform}#ov{pointer-events:none}
+.result{height:44px;font-size:24px;font-weight:700;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+aside{width:310px;flex:none;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:0;overflow-y:auto}
+.head{display:flex;align-items:center;gap:8px}
+.head b{font-size:15px}.head span{color:var(--muted);font-size:12px}
+input[type=text]{width:100%;border:1px solid transparent;background:var(--field);color:var(--text);border-radius:8px;padding:8px 10px;font:inherit;outline:none;user-select:text}
+input[type=text]:focus{border-color:var(--accent)}
+#list{list-style:none;margin:0;padding:0;flex:1;min-height:80px;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.item{display:flex;align-items:center;gap:8px}
+.item .dot{width:12px;height:12px;border-radius:50%;flex:none}
+.item input[type=text]{flex:1;min-width:0;padding:6px 8px}
+.item.off .dot{opacity:.3}
+.item.off input[type=text]{color:var(--muted);text-decoration:line-through}
+.item button{border:0;background:none;color:var(--muted);font-size:18px;cursor:pointer;border-radius:6px;width:26px;height:26px;line-height:1}
+.item button:hover{background:var(--field);color:#e5484d}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;flex:none;margin:0}
+.opts{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.opts label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.opts small{color:var(--muted)}
+.btns{display:flex;gap:8px}
+button.main{flex:1;border:0;border-radius:10px;background:var(--accent);color:#fff;font-weight:600;font-size:16px;font-family:inherit;padding:11px;cursor:pointer}
+button.main:disabled{opacity:.5;cursor:default}
+button.ghost{border:1px solid var(--line);background:none;color:var(--text);border-radius:10px;padding:0 12px;font:inherit;cursor:pointer}
+.locked{pointer-events:none;opacity:.55}
+@media (max-width:760px){.app{flex-direction:column}aside{width:100%;max-height:48%}}
+.seg{display:flex;gap:2px;background:var(--field);border-radius:8px;padding:2px;margin-left:auto}
+.seg button{border:0;background:none;border-radius:6px;padding:1px 6px;cursor:pointer;font-size:14px;line-height:1.5}
+.seg button.on{background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+#pal{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.chip{border:2px solid transparent;background:var(--field);color:var(--text);border-radius:10px;padding:6px;cursor:pointer;font:inherit;font-size:12px;display:flex;flex-direction:column;gap:4px;align-items:stretch}
+.chip.sel{border-color:var(--accent)}
+.strip{display:flex;height:10px;border-radius:5px;overflow:hidden}.strip i{flex:1}
+.stage{position:relative}
+.pill{position:absolute;top:0;left:0;z-index:1;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:5px 12px;font:inherit;cursor:pointer}
+.pill:hover{border-color:var(--accent)}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:300px;max-width:100%;background:var(--panel);border-right:1px solid var(--line);box-shadow:8px 0 24px rgba(0,0,0,.2);padding:14px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;z-index:10;transform:translateX(-105%);visibility:hidden;transition:transform .22s ease,visibility 0s .22s}
+.drawer.open{transform:none;visibility:visible;transition:transform .22s ease,visibility 0s}
+.dhead{display:flex;justify-content:space-between;align-items:center}.dhead b{font-size:15px}
+.dhead button{border:0;background:none;color:var(--muted);font-size:20px;cursor:pointer;border-radius:6px;width:28px;height:28px}
+.dhead button:hover{background:var(--field)}
+.dlabel{font-size:12px;color:var(--muted);margin-bottom:8px}
+.seg.wide{margin:0}.seg.wide button{flex:1;font-size:13px;padding:6px 4px}
+#custom{margin-top:12px}#custom[hidden]{display:none}
+.swrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sw{width:30px;height:30px;border-radius:8px;border:2px solid var(--line);cursor:pointer;padding:0}
+.sw.sel{outline:2px solid var(--accent);outline-offset:2px}
+.swbtn{width:30px;height:30px;border:1px dashed var(--muted);background:none;color:var(--text);border-radius:8px;cursor:pointer;font-size:16px}
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-top:12px}
+.cell{aspect-ratio:1;border-radius:6px;border:1px solid var(--line);padding:0;cursor:pointer}
+.cell.sel{outline:2px solid var(--accent);outline-offset:1px}
+.hexrow{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:12px;color:var(--muted)}
+.hexrow input{width:100px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.app{transition:padding-left .22s ease}
+body.side .app{padding-left:332px}
+@media (max-width:1010px){body.side aside{display:none}}
+@media (max-width:760px){body.side .app{padding-left:16px}body.side aside{display:flex}.drawer{top:auto;right:0;width:auto;max-width:none;height:58%;border-right:0;border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(0,0,0,.2);transform:translateY(105%)}}
+html.loading body{visibility:hidden}
+.item .w{display:none;width:48px;flex:none;border:1px solid transparent;background:var(--field);color:var(--text);border-radius:8px;padding:6px 2px;font:inherit;text-align:center;outline:none;user-select:text}
+.item .w:focus{border-color:var(--accent)}
+.item .pct{display:none;width:42px;flex:none;text-align:right;font-size:12px;color:var(--muted)}
+#list.wt .item .w,#list.wt .item .pct{display:block}
+.item.off .w,.item.off .pct{opacity:.4}
+.hint{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted);min-height:20px}
+.link{border:0;background:none;color:var(--accent);font:inherit;font-size:12px;cursor:pointer;padding:0}
+.link[hidden]{display:none}
+.langseg{position:absolute;top:38px;left:0;z-index:1;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:2px}
+.langseg button{border-radius:999px;font-size:12px;padding:3px 10px;color:var(--text)}
+.langseg button.on{background:var(--accent);color:#fff;box-shadow:none}
+.pill.gear{width:32px;height:32px;padding:0;display:grid;place-items:center}
+.pill.gear svg{display:block;transition:transform .35s ease}
+.pill.gear:hover svg{transform:rotate(60deg)}
+.sndrow{display:flex;align-items:center;gap:10px}
+.sndrow button{flex:none;width:38px;height:32px;border:1px solid var(--line);background:var(--field);color:var(--text);border-radius:8px;cursor:pointer;font-size:16px;line-height:1}
+.sndrow input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+.sndrow .volv{flex:none;width:40px;text-align:right;font-size:12px;color:var(--muted)}
+.sndrow.muted input[type=range],.sndrow.muted .volv{opacity:.45}
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="stage">
+    <button class="pill gear" id="lookBtn" data-i-title="lookTitle"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M9.53 4.39L9.98 1.59L14.02 1.59L14.47 4.39L15.63 4.87L17.93 3.21L20.79 6.07L19.13 8.37L19.61 9.53L22.41 9.98L22.41 14.02L19.61 14.47L19.13 15.63L20.79 17.93L17.93 20.79L15.63 19.13L14.47 19.61L14.02 22.41L9.98 22.41L9.53 19.61L8.37 19.13L6.07 20.79L3.21 17.93L4.87 15.63L4.39 14.47L1.59 14.02L1.59 9.98L4.39 9.53L4.87 8.37L3.21 6.07L6.07 3.21L8.37 4.87ZM8.6 12a3.4 3.4 0 1 0 6.8 0a3.4 3.4 0 1 0 -6.8 0Z"/></svg></button>
+    <div class="seg langseg" id="langSeg"><button data-l="zh">中文</button><button data-l="en">EN</button></div>
+    <div class="wheelbox" id="box"><div class="stack" id="stack"><canvas id="cv"></canvas><canvas id="ov"></canvas></div></div>
+    <div class="result" id="result"></div>
+  </section>
+  <aside>
+    <div class="head"><b data-i="options"></b><span id="count"></span></div>
+    <div class="seg wide" id="mode"><button data-m="fair" data-i="fair"></button><button data-m="weighted" data-i="weighted"></button></div>
+    <div class="hint"><span id="hint"></span><button class="link" id="eq" data-i="resetW" hidden></button></div>
+    <input type="text" id="add" data-i-ph="addPh">
+    <ul id="list"></ul>
+    <div class="opts">
+      <label><input type="checkbox" id="rm"><span><span data-i="rm"></span><br><small data-i="rmHint"></small></span></label>
+      <label><input type="checkbox" id="skip"><span data-i="skip"></span></label>
+    </div>
+    <div class="btns">
+      <button class="ghost" id="restore" data-i-title="restoreTitle" data-i="restore"></button>
+      <button class="main" id="spin" data-i="spin"></button>
+    </div>
+  </aside>
+</div>
+<div class="drawer" id="drawer" aria-hidden="true">
+  <div class="dhead"><b data-i="dTitle"></b><button id="drawerClose" data-i-title="closeTitle">×</button></div>
+  <div>
+    <div class="dlabel" data-i="screen"></div>
+    <div class="seg wide" id="theme"><button data-m="auto" data-i="auto"></button><button data-m="light" data-i="light"></button><button data-m="dark" data-i="dark"></button></div>
+  </div>
+  <div id="look">
+    <div class="dlabel" data-i="wheelColors"></div>
+    <div id="pal"></div>
+    <div id="custom" hidden></div>
+  </div>
+  <div>
+    <div class="dlabel" data-i="sound"></div>
+    <div class="sndrow" id="sndrow">
+      <button id="mute">🔊</button>
+      <input type="range" id="vol" min="0" max="100" step="1" value="70" data-i-title="volume">
+      <span class="volv" id="volv">70%</span>
+    </div>
+  </div>
+</div>
+<script>
+const TAU = Math.PI * 2, $ = s => document.querySelector(s);
+/* ---------- 多語言（中文 / English） ---------- */
+const I18N = {
+  zh: {
+    lookTitle: "設定", idle: "點轉盤或按「開始」", need2: "至少需要 2 個可用選項", spinning: "轉轉轉…",
+    options: "選項", count: (a, n) => `轉盤上 ${a} / 共 ${n}`, fair: "公平", weighted: "自訂機率",
+    hintFair: "每個選項的機率相同", hintW: "數字越大，機率越高、扇形越寬", resetW: "重設權重",
+    addPh: "輸入後按 Enter 新增（可貼上多行）", rm: "轉到後從轉盤移除", rmHint: "只是暫時取消勾選，不會刪除選項",
+    skip: "跳過動畫", sound: "轉動音效", volume: "音量", mute: "靜音", unmute: "取消靜音", restore: "全部恢復", restoreTitle: "把所有選項重新放回轉盤", spin: "開始",
+    dTitle: "設定", closeTitle: "關閉（Esc）", screen: "畫面", auto: "🖥️ 跟隨系統", light: "☀️ 日間", dark: "🌙 夜間",
+    wheelColors: "轉盤配色", pal_vivid: "繽紛", pal_pastel: "粉彩", pal_ocean: "海洋", pal_sunset: "日落", pal_forest: "森林", custom: "自訂",
+    onTitle: "是否出現在轉盤上", delTitle: "刪除這個選項", wTitle: "權重：數字越大，機率越高", noOpts: "沒有可用的選項",
+    editColor: "編輯這個顏色", addColor: "新增顏色", delColor: "移除選取的顏色", hex: "色碼",
+  },
+  en: {
+    lookTitle: "Settings", idle: "Click the wheel or press “Spin”", need2: "At least 2 active options are needed", spinning: "Spinning…",
+    options: "Options", count: (a, n) => `${a} on wheel / ${n} total`, fair: "Fair", weighted: "Custom odds",
+    hintFair: "Every option has the same chance", hintW: "Higher number = higher chance and a wider slice", resetW: "Reset weights",
+    addPh: "Type and press Enter to add (paste multiple lines OK)", rm: "Remove from wheel after landing", rmHint: "Only unchecks it; the option isn’t deleted",
+    skip: "Skip animation", sound: "Spin sound", volume: "Volume", mute: "Mute", unmute: "Unmute", restore: "Restore all", restoreTitle: "Put all options back on the wheel", spin: "Spin",
+    dTitle: "Settings", closeTitle: "Close (Esc)", screen: "Display", auto: "🖥️ System", light: "☀️ Light", dark: "🌙 Dark",
+    wheelColors: "Wheel colors", pal_vivid: "Vivid", pal_pastel: "Pastel", pal_ocean: "Ocean", pal_sunset: "Sunset", pal_forest: "Forest", custom: "Custom",
+    onTitle: "Show on the wheel", delTitle: "Delete this option", wTitle: "Weight: higher = more likely", noOpts: "No active options",
+    editColor: "Edit this color", addColor: "Add a color", delColor: "Remove the selected color", hex: "Hex",
+  },
+};
+let lang = /^zh/i.test((typeof navigator !== "undefined" && navigator.language) || "zh") ? "zh" : "en";   // 第一次啟動：依系統語言
+const tr = (k, ...a) => { const v = (I18N[lang] || I18N.zh)[k] ?? I18N.zh[k] ?? k; return typeof v === "function" ? v(...a) : v; };
+const PALETTES = [
+  { id: "vivid", colors: ["#EF476F","#F4A261","#2A9D8F","#118AB2","#9B5DE5","#E76F51","#43AA8B","#577590"] },
+  { id: "pastel", colors: ["#F28DA6","#F6B77D","#8FD3B6","#8EC5E8","#B9A3E8","#F2A6A0"] },
+  { id: "ocean", colors: ["#03045E","#0077B6","#00B4D8","#48CAE4","#90E0EF","#2A9D8F"] },
+  { id: "sunset", colors: ["#FF595E","#FF924C","#FFCA3A","#C77DFF","#7B2CBF","#E85D75"] },
+  { id: "forest", colors: ["#2D6A4F","#40916C","#52B788","#74C69D","#95D5B2","#8A6F47"] },
+];
+let paletteId = "vivid", custom = ["#FF6B6B", "#FFD93D", "#6BCB77", "#4D96FF"], themeMode = "auto";
+const T = {};                                   // 畫布用的主題色（由 CSS 變數讀入）
+const palette = () => paletteId === "custom" ? custom : PALETTES.find(p => p.id === paletteId).colors;
+function colorAt(i, n) {                        // 依序取色；避免最後一格與第一格同色
+  const m = palette().length; let k = i % m;
+  if (m > 2 && n > 1 && i === n - 1 && k === 0) k = Math.floor(m / 2);
+  return palette()[k];
+}
+
+function textOn(hex) {                          // 依底色亮度選白字或深字
+  const v = parseInt(hex.slice(1), 16), lum = 0.299 * (v >> 16) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255);
+  return "#fff"
+  //return lum > 165 ? "#1b1f2a" : "#fff";
+}
+
+const cv = $("#cv"), ctx = cv.getContext("2d"), ov = $("#ov"), octx = ov.getContext("2d"), stack = $("#stack");
+let uid = 0, size = 400, rot = 0, spinning = false, wheelItems = [];
+const mk = t => ({ id: ++uid, text: t, on: true, w: 1 });
+let items = ["瘋狂瑪吉", "探路者", "邦加羅爾", "直布羅陀", "萬塔捷", "尋血犬", "暗碼士", "席爾", "雀影", "轟哥", "亡靈", "彈道"].map(mk);
+const active = () => items.filter(i => i.on && i.text.trim());
+const mod = x => ((x % TAU) + TAU) % TAU;
+let playMode = "fair";                           // fair：每格機率相同（原本的方式）／weighted：依權重
+let geo = { starts: [], spans: [], ws: [], W: 1 };   // 每一格的起點與角度（弧度）、權重
+function computeGeo() {                          // fair 模式權重全為 1，結果與原本完全相同
+  const ws = wheelItems.map(i => playMode === "weighted" ? i.w : 1), W = ws.reduce((a, b) => a + b, 0) || 1;
+  let acc = 0; geo = { starts: [], spans: [], ws, W };
+  for (const w of ws) { geo.starts.push(acc * TAU / W); geo.spans.push(w * TAU / W); acc += w; }
+}
+const sliceAt = a => { let i = 0; while (i + 1 < geo.starts.length && geo.starts[i + 1] <= a) i++; return i; };
+
+function syncWheel() { if (!spinning) { wheelItems = active(); computeGeo(); draw(); refreshDots(); scheduleSave(); } }
+function count() { $("#count").textContent = tr("count", active().length, items.length); }
+let resultView = { k: "idle" };                 // 目前顯示的是哪一種訊息；切換語言時才能重新翻譯
+function showResult(k, text) { resultView = { k, text }; $("#result").textContent = k === "win" ? "🎉 " + text : tr(k); }
+
+/* ---------- 選項清單 ---------- */
+function renderList() {
+  const ul = $("#list"); ul.textContent = "";
+  for (const it of items) {
+    const li = document.createElement("li"); li.className = "item" + (it.on ? "" : " off");
+    const cb = Object.assign(document.createElement("input"), { type: "checkbox", checked: it.on, title: tr("onTitle") });
+    cb.onchange = () => { it.on = cb.checked; li.classList.toggle("off", !it.on); syncWheel(); count(); };
+    const dot = document.createElement("span"); dot.className = "dot"; it._dot = dot;
+    const tx = Object.assign(document.createElement("input"), { type: "text", value: it.text });
+    tx.oninput = () => { it.text = tx.value; syncWheel(); count(); };
+    const del = Object.assign(document.createElement("button"), { textContent: "×", title: tr("delTitle") });
+    del.onclick = () => { items = items.filter(x => x !== it); renderList(); syncWheel(); };
+    const wt = Object.assign(document.createElement("input"), { type: "number", min: 1, max: 100, step: 1, value: it.w, className: "w", title: tr("wTitle") });
+    wt.oninput = () => { const v = Math.round(+wt.value); if (v >= 1 && v <= 100) { it.w = v; syncWheel(); } };
+    wt.onblur = () => { wt.value = it.w; };
+    const pct = document.createElement("span"); pct.className = "pct"; it._pct = pct;
+    li.append(cb, dot, tx, wt, pct, del); ul.append(li);
+  }
+  count(); refreshDots();
+}
+function addLines(text) {
+  const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (!lines.length) return;
+  items.push(...lines.map(mk)); renderList(); syncWheel();
+  $("#list").scrollTop = 1e9;
+}
+$("#add").addEventListener("keydown", e => { if (e.key === "Enter") { addLines(e.target.value); e.target.value = ""; } });
+$("#add").addEventListener("paste", e => {
+  const t = (e.clipboardData || window.clipboardData).getData("text");
+  if (/\r?\n/.test(t.trim())) { e.preventDefault(); addLines(t); }
+});
+$("#restore").onclick = () => { if (spinning) return; items.forEach(i => i.on = true); renderList(); syncWheel(); };
+
+/* ---------- 繪製 ---------- */
+function resize() {
+  const b = $("#box");
+  size = Math.max(160, Math.floor(Math.min(b.clientWidth, b.clientHeight)));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2, 2000 / size), px = Math.round(size * dpr);
+  stack.style.width = stack.style.height = size + "px";
+  for (const [c, x] of [[cv, ctx], [ov, octx]]) {
+    c.style.width = c.style.height = size + "px"; c.width = c.height = px;
+    x.setTransform(px / size, 0, 0, px / size, 0, 0);
+  }
+  draw();
+}
+let rq = 0;
+new ResizeObserver(() => { cancelAnimationFrame(rq); rq = requestAnimationFrame(resize); }).observe($("#box"));
+
+function paint(c, rot0) {   // 畫轉盤本體（扇形 + 文字）到指定畫布
+  const s = size, cx = s / 2, cy = s / 2, r = s * 0.44, n = wheelItems.length;
+  if (!n) {
+    c.fillStyle = "rgba(128,128,128,.25)"; c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.fill();
+    c.fillStyle = "#888"; c.font = `600 ${s * 0.05}px sans-serif`; c.textAlign = "center";
+    c.fillText(tr("noOpts"), cx, cy);
+  }
+  wheelItems.forEach((it, i) => {
+    const span = geo.spans[i], a0 = -Math.PI / 2 + rot0 + geo.starts[i];
+    c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, r, a0, a0 + span); c.closePath();
+    const col = colorAt(i, n); c.fillStyle = col; c.fill();
+    c.lineWidth = Math.max(2, s * 0.006); c.strokeStyle = T.sep; c.stroke();
+    // 文字：沿半徑方向，字級自動縮小以適應
+    c.save(); c.translate(cx, cy); c.rotate(a0 + span / 2);
+    c.textAlign = "right"; c.textBaseline = "middle"; c.fillStyle = textOn(col);
+    let fs = Math.max(10, Math.min(s * 0.055, r * span * 0.45)), t = it.text.trim();
+    const maxW = r * 0.72, setF = () => c.font = `700 ${fs}px system-ui,"PingFang TC","Microsoft JhengHei",sans-serif`;
+    setF();
+    while (c.measureText(t).width > maxW && fs > 10) { fs--; setF(); }
+    while (c.measureText(t).width > maxW && t.length > 1) t = t.slice(0, -2) + "…";
+    c.fillText(t, r * 0.92, 0); c.restore();
+  });
+}
+function chrome(o) {         // 中心圓 + 指針（永遠畫在最上層）
+  const s = size, cx = s / 2, cy = s / 2, r = s * 0.44;
+  o.fillStyle = T.hub; o.strokeStyle = T["hub-line"]; o.lineWidth = 2;
+  o.beginPath(); o.arc(cx, cy, s * 0.04, 0, TAU); o.fill(); o.stroke();
+  o.fillStyle = T.ptr; o.strokeStyle = T["ptr-line"]; o.beginPath();
+  o.moveTo(cx - s * 0.035, s * 0.005); o.lineTo(cx + s * 0.035, s * 0.005);
+  o.lineTo(cx, cy - r + s * 0.035); o.closePath(); o.fill(); o.stroke();
+}
+function draw() {            // 靜止時：向量重畫，文字最清晰
+  ctx.clearRect(0, 0, size, size); paint(ctx, rot);
+  octx.clearRect(0, 0, size, size); chrome(octx);
+}
+
+/* ---------- 轉動 ---------- */
+function lock(on) { spinning = on; $("#spin").disabled = on; $("#list").classList.toggle("locked", on); $("#add").disabled = on; $("#look").classList.toggle("locked", on); $("#mode").classList.toggle("locked", on); }
+
+/* ---------- 音效（用瀏覽器內建的 Web Audio 合成，不需音檔） ---------- */
+let actx = null, master = null, muted = false, volume = 70;
+const soundOn = () => !muted && volume > 0;
+function applyVolume() { if (master) master.gain.value = muted ? 0 : (volume / 100) ** 2 * 2; }   // 平方曲線：聽感上較均勻
+function audio() {
+  if (!actx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { actx = new AC(); master = actx.createGain(); master.connect(actx.destination); applyVolume(); }
+  }
+  if (actx && actx.state === "suspended") actx.resume();
+  return actx;
+}
+function beep(freq, type, vol, dur, when = 0) {  // 單一音：快速起音、指數衰減；全部接到總音量節點
+  const a = actx; if (!a) return;
+  const t = a.currentTime + when, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(master || a.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+const tick = () => beep(1050 + Math.random() * 150, "triangle", 0.16, 0.045);
+const ding = () => { beep(784, "sine", 0.2, 0.9); beep(1175, "sine", 0.14, 1.1, 0.09); };
+function renderSound() {                         // 靜音鈕、音量滑桿與百分比
+  $("#mute").textContent = muted || volume === 0 ? "🔇" : "🔊";
+  $("#mute").title = muted ? tr("unmute") : tr("mute");
+  $("#vol").value = volume; $("#volv").textContent = volume + "%";
+  $("#sndrow").classList.toggle("muted", muted);
+}
+$("#mute").onclick = () => { muted = !muted; audio(); applyVolume(); renderSound(); if (soundOn()) tick(); scheduleSave(); };
+$("#vol").oninput = () => { volume = +$("#vol").value; if (muted && volume > 0) muted = false; applyVolume(); renderSound(); scheduleSave(); };
+$("#vol").onchange = () => { audio(); applyVolume(); if (soundOn()) tick(); };   // 放開滑桿時播一聲，方便聽音量
+function tickLoop(anim, r0, delta) {             // 指針每跨過一條分隔線響一次；用動畫進度推算角度，不影響畫面
+  let last = sliceAt(mod(-r0)), lastT = 0;
+  (function loop(now) {
+    if (!spinning) return;
+    const p = anim.effect.getComputedTiming().progress;
+    const idx = sliceAt(mod(-(r0 + delta * (p == null ? 1 : p))));
+    if (idx !== last) { last = idx; if (now - lastT > 35) { tick(); lastT = now; } }
+    requestAnimationFrame(loop);
+  })(performance.now());
+}
+
+function spin() {
+  if (spinning) return;
+  syncWheel();
+  const n = wheelItems.length;
+  if (n < 2) { showResult("need2"); return; }
+  // 先決定結果，再算出要轉到哪個角度
+  let w;
+  if (playMode === "weighted") { let u = Math.random() * geo.W; for (w = 0; w < n - 1 && u >= geo.ws[w]; w++) u -= geo.ws[w]; }
+  else w = Math.floor(Math.random() * n);        // 公平模式：每格機率相同（原本的做法）
+  const ang = geo.starts[w] + (0.1 + Math.random() * 0.8) * geo.spans[w];
+  const delta = mod(mod(-ang) - rot) + TAU * (4 + Math.floor(Math.random() * 3));
+  const winner = wheelItems[w], r0 = rot, sound = soundOn();
+  if (sound) audio();                            // 要在使用者操作（點擊）當下建立音效環境
+  if ($("#skip").checked) { rot = r0 + delta; draw(); finish(winner); return; }
+  lock(true); showResult("spinning");
+  // 轉盤本體已畫好（角度 = r0），只讓這一層用 CSS 旋轉 delta；曲線等同 easeOutCubic（先快後慢）
+  const anim = cv.animate(
+    [{ transform: "rotate(0rad)" }, { transform: `rotate(${delta}rad)` }],
+    { duration: 4000, easing: "cubic-bezier(.215,.61,.355,1)", fill: "forwards" });
+  if (sound) tickLoop(anim, r0, delta);
+  anim.onfinish = () => { rot = r0 + delta; anim.cancel(); draw(); finish(winner); };
+}
+function finish(winner) {
+  showResult("win", winner.text);
+  if (soundOn()) ding();
+  if ($("#rm").checked) { winner.on = false; renderList(); scheduleSave(); }  // 只取消勾選；轉盤維持停下的畫面，下次轉動才更新
+  lock(false);
+}
+$("#spin").onclick = spin;
+stack.onclick = spin;
+
+function refreshDots() {                        // 圓點顏色 = 該選項在轉盤上的顏色；同時更新機率顯示
+  const fmt = p => (p < 10 ? p.toFixed(1) : Math.round(p)) + "%";
+  for (const it of items) {
+    if (!it._dot) continue;
+    const i = wheelItems.indexOf(it);
+    it._dot.style.background = i < 0 ? "#9aa0ad" : colorAt(i, wheelItems.length);
+    if (it._pct) it._pct.textContent = i < 0 ? "—" : fmt(geo.ws[i] / geo.W * 100);
+  }
+}
+const mq = matchMedia("(prefers-color-scheme: dark)");
+function syncWindow(mode, dark) {                // 通知 Python 端，讓視窗標題列跟著變色（只在 pywebview 內有效）
+  const send = () => { try { window.pywebview.api.set_theme(mode, dark).catch(() => {}); } catch (e) {} };
+  if (window.pywebview && window.pywebview.api) send();
+  else window.addEventListener("pywebviewready", send, { once: true });
+}
+function applyTheme() {
+  const dark = themeMode === "dark" || (themeMode === "auto" && mq.matches);
+  const root = document.documentElement; root.dataset.theme = dark ? "dark" : "light";
+  syncWindow(themeMode, dark);
+  const cs = getComputedStyle(root);
+  for (const k of ["sep", "ptr", "ptr-line", "hub", "hub-line"]) T[k] = cs.getPropertyValue("--" + k).trim();
+  document.querySelectorAll("#theme button").forEach(b => b.classList.toggle("on", b.dataset.m === themeMode));
+  draw(); scheduleSave();
+}
+$("#theme").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { themeMode = b.dataset.m; applyTheme(); } });
+mq.addEventListener("change", () => { if (themeMode === "auto") applyTheme(); });
+
+function choose(id) { paletteId = id; renderPalettes(); renderCustom(); syncWheel(); }
+function renderPalettes() {
+  const box = $("#pal"); box.textContent = "";
+  for (const p of [...PALETTES, { id: "custom", colors: custom }]) {
+    const b = document.createElement("button"); b.className = "chip" + (p.id === paletteId ? " sel" : ""); b.title = p.id === "custom" ? tr("custom") : tr("pal_" + p.id);
+    const strip = document.createElement("span"); strip.className = "strip";
+    for (const c of p.colors) { const i = document.createElement("i"); i.style.background = c; strip.append(i); }
+    const nm = document.createElement("span"); nm.textContent = p.id === "custom" ? tr("custom") : tr("pal_" + p.id);
+    b.append(strip, nm); b.onclick = () => choose(p.id); box.append(b);
+  }
+}
+let selIdx = 0;
+function hsl2hex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return "#" + [f(0), f(8), f(4)].map(x => Math.round(x * 255).toString(16).padStart(2, "0")).join("");
+}
+// 方格色票：第一列灰階（左上角是白色，沒有「無顏色」格），其餘為 8 種色相 × 5 種亮度
+const GRID = (() => {
+  const g = ["#ffffff", "#e5e5e5", "#bfbfbf", "#999999", "#737373", "#4d4d4d", "#262626", "#000000"];
+  for (const l of [85, 72, 58, 44, 30]) for (const h of [0, 28, 52, 135, 175, 215, 270, 325]) g.push(hsl2hex(h, 85, l));
+  return g;
+})();
+function renderCustom() {                        // 最後一個配置：自訂顏色（2～10 色，皆為不透明）
+  const box = $("#custom"); box.hidden = paletteId !== "custom"; box.textContent = "";
+  if (box.hidden) return;
+  selIdx = Math.min(selIdx, custom.length - 1);
+  const el = (tag, cls, props) => Object.assign(Object.assign(document.createElement(tag), { className: cls || "" }), props);
+  const row = el("div", "swrow"), cur = () => row.children[selIdx];
+  custom.forEach((c, i) => {                     // 目前的自訂顏色：點一下選取，再到下方方格換色
+    const b = el("button", "sw" + (i === selIdx ? " sel" : ""), { title: tr("editColor") });
+    b.style.background = c; b.onclick = () => { selIdx = i; renderCustom(); }; row.append(b);
+  });
+  const btn = (t, title, fn) => { const b = el("button", "swbtn", { textContent: t, title }); b.onclick = fn; row.append(b); };
+  if (custom.length < 10) btn("＋", tr("addColor"), () => { custom.push(GRID[8 + Math.floor(Math.random() * 40)]); selIdx = custom.length - 1; choose("custom"); });
+  if (custom.length > 2) btn("－", tr("delColor"), () => { custom.splice(selIdx, 1); choose("custom"); });
+
+  const grid = el("div", "grid"), hexIn = el("input", "", { type: "text", maxLength: 7, spellcheck: false, value: custom[selIdx] });
+  const commit = hex => {
+    custom[selIdx] = hex; hexIn.value = hex; cur().style.background = hex;
+    [...grid.children].forEach((c, i) => c.classList.toggle("sel", GRID[i] === hex));
+    renderPalettes(); syncWheel();
+  };
+  GRID.forEach(hex => {
+    const c = el("button", "cell" + (hex === custom[selIdx] ? " sel" : ""), { title: hex });
+    c.style.background = hex; c.onclick = () => commit(hex); grid.append(c);
+  });
+  hexIn.oninput = () => {                        // 色碼：只接受 6 位，沒有透明度（8 位）
+    const t = hexIn.value.trim();
+    if (/^#?[0-9a-f]{6}$/i.test(t)) commit("#" + t.replace("#", "").toLowerCase());
+  };
+  hexIn.onblur = () => { hexIn.value = custom[selIdx]; };
+  const hr = el("div", "hexrow"); hr.append(el("span", "", { textContent: tr("hex") }), hexIn);
+  box.append(row, grid, hr);
+}
+
+// 外觀側欄：開關
+const drawer = $("#drawer");
+function toggleDrawer(open = !drawer.classList.contains("open")) {
+  drawer.classList.toggle("open", open); drawer.setAttribute("aria-hidden", String(!open));
+  document.body.classList.toggle("side", open);
+}
+$("#lookBtn").onclick = () => toggleDrawer();
+$("#drawerClose").onclick = () => toggleDrawer(false);
+addEventListener("keydown", e => { if (e.key === "Escape") toggleDrawer(false); });
+
+function applyLang() {                           // 更新所有文字（靜態標籤 + 動態內容）
+  document.documentElement.lang = lang === "zh" ? "zh-Hant" : "en";
+  document.querySelectorAll("[data-i]").forEach(e => { e.textContent = tr(e.dataset.i); });
+  document.querySelectorAll("[data-i-title]").forEach(e => { e.title = tr(e.dataset.iTitle); });
+  document.querySelectorAll("[data-i-ph]").forEach(e => { e.placeholder = tr(e.dataset.iPh); });
+  document.querySelectorAll("#langSeg button").forEach(b => b.classList.toggle("on", b.dataset.l === lang));
+  renderList(); renderPalettes(); renderCustom(); updateModeUI(); renderSound(); showResult(resultView.k, resultView.text); draw();
+}
+$("#langSeg").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (b && b.dataset.l && b.dataset.l !== lang) { lang = b.dataset.l; applyLang(); scheduleSave(); }
+});
+
+/* ---------- 機率模式 ---------- */
+function updateModeUI() {
+  document.querySelectorAll("#mode button").forEach(b => b.classList.toggle("on", b.dataset.m === playMode));
+  $("#list").classList.toggle("wt", playMode === "weighted");
+  $("#hint").textContent = playMode === "weighted" ? tr("hintW") : tr("hintFair");
+  $("#eq").hidden = playMode !== "weighted";
+}
+$("#mode").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (b && !spinning) { playMode = b.dataset.m; updateModeUI(); syncWheel(); }
+});
+$("#eq").onclick = () => { if (spinning) return; items.forEach(i => i.w = 1); renderList(); syncWheel(); };
+
+/* ---------- 存檔（由 Python 端寫入使用者資料夾的 JSON） ---------- */
+let loaded = false, saveTimer = 0;
+const api = () => (window.pywebview && window.pywebview.api) || null;
+const snapshot = () => ({
+  v: 1, items: items.map(i => ({ t: i.text, on: i.on, w: i.w })), palette: paletteId, custom, theme: themeMode,
+  rm: $("#rm").checked, skip: $("#skip").checked, muted, volume, play: playMode, lang });
+function flushSave() {
+  clearTimeout(saveTimer);
+  if (loaded && api()) { try { api().save_state(snapshot()).catch(() => {}); } catch (e) {} }
+}
+function scheduleSave() { if (loaded) { clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 300); } }
+addEventListener("pagehide", flushSave); addEventListener("beforeunload", flushSave);
+["#rm", "#skip"].forEach(id => $(id).addEventListener("change", scheduleSave));
+
+function applyState(st) {                        // 逐欄驗證，壞掉或舊版的存檔不會讓程式出錯
+  if (!st || typeof st !== "object") return;
+  if (Array.isArray(st.items)) items = st.items.slice(0, 200).map(x => {
+    const it = mk(String((x && x.t) ?? "")); it.on = !(x && x.on === false);
+    it.w = Math.min(100, Math.max(1, Math.round(+(x && x.w)) || 1)); return it; });
+  if (st.palette === "custom" || PALETTES.some(p => p.id === st.palette)) paletteId = st.palette;
+  if (Array.isArray(st.custom) && st.custom.length >= 2 && st.custom.length <= 10 && st.custom.every(c => /^#[0-9a-f]{6}$/i.test(c)))
+    custom = st.custom.map(c => c.toLowerCase());
+  if (["auto", "light", "dark"].includes(st.theme)) themeMode = st.theme;
+  $("#rm").checked = !!st.rm; $("#skip").checked = !!st.skip; 
+  if (typeof st.volume === "number" && isFinite(st.volume)) volume = Math.min(100, Math.max(0, Math.round(st.volume)));
+  muted = typeof st.muted === "boolean" ? st.muted : st.snd === false;   // 舊存檔的 snd=false 視為靜音
+  playMode = st.play === "weighted" ? "weighted" : "fair";
+  if (st.lang === "zh" || st.lang === "en") lang = st.lang;
+}
+function initUI() {
+  wheelItems = active(); computeGeo(); applyLang(); applyTheme(); resize();
+}
+const reveal = () => document.documentElement.classList.remove("loading");
+async function loadSaved() {
+  try { applyState(await api().load_state()); } catch (e) {}
+  initUI(); loaded = true; reveal();
+}
+document.documentElement.classList.add("loading");   // 載入存檔前先隱藏，避免先閃一下預設內容
+initUI();
+if (api()) loadSaved();
+else { addEventListener("pywebviewready", loadSaved, { once: true }); setTimeout(reveal, 600); }
+</script>
+</body>
+</html>
