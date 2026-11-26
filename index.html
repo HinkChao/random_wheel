@@ -10,7 +10,7 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,"Segoe UI","PingFang TC","Microsoft JhengHei",sans-serif;user-select:none;overflow:auto}
-.app{display:flex;height:100%;gap:16px;padding:16px;min-width:560px;min-height:560px}
+.app{display:flex;height:100%;gap:16px;padding:16px;min-width:300px;min-height:0}
 .stage{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center}
 .wheelbox{flex:1;min-height:0;width:100%;display:grid;place-items:center}
 .stack{position:relative;overflow:hidden;cursor:pointer}.stack canvas{position:absolute;left:0;top:0}#cv{will-change:transform}#ov{pointer-events:none}
@@ -89,6 +89,39 @@ html.loading body{visibility:hidden}
 .sndrow input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
 .sndrow .volv{flex:none;width:40px;text-align:right;font-size:12px;color:var(--muted)}
 .sndrow.muted input[type=range],.sndrow.muted .volv{opacity:.45}
+/* ===== 手機／觸控裝置（依螢幕寬度與是否為觸控自動調整，不需要偵測裝置型號） ===== */
+html,body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}  /* 避免下拉重新整理把設定洗掉、點兩下放大 */
+.stack{-webkit-touch-callout:none}
+@media (pointer:coarse){
+  input[type=text],input[type=number]{font-size:16px}   /* iPhone：輸入框字級小於 16px 時，點進去會自動放大整個頁面 */
+  input[type=checkbox]{width:22px;height:22px}
+  .item{gap:10px}
+  .item button{width:36px;height:36px;font-size:22px}
+  .item .w{width:54px}
+  .pill.gear{width:40px;height:40px}
+  .langseg{top:46px}
+  .langseg button{padding:6px 12px;font-size:13px}
+  .seg button{padding:6px 10px}
+  .sw,.swbtn{width:36px;height:36px}
+  .sndrow button{height:40px}
+  .link{padding:6px 2px}
+  button.main{padding:13px}
+  .opts label{padding:3px 0}
+}
+@media (max-width:760px){
+  aside{max-height:46%;padding-bottom:0}
+  .btns{position:sticky;bottom:0;background:var(--panel);padding:8px 0 14px;z-index:2}   /* 「開始」按鈕固定在清單下方，不會被捲出畫面 */
+}
+@media (max-width:480px){
+  .app{padding:10px;gap:10px}
+  aside{padding:12px 12px 0}
+  .result{font-size:20px;height:36px}
+}
+.addrow{display:flex;gap:8px}
+.addrow input{flex:1;min-width:0}
+.addbtn{flex:none;width:40px;border:0;border-radius:8px;background:var(--accent);color:#fff;font-size:20px;line-height:1;cursor:pointer}
+.addbtn:disabled{opacity:.5;cursor:default}
+@media (pointer:coarse){.addbtn{width:48px}}
 </style>
 </head>
 <body>
@@ -103,7 +136,10 @@ html.loading body{visibility:hidden}
     <div class="head"><b data-i="options"></b><span id="count"></span></div>
     <div class="seg wide" id="mode"><button data-m="fair" data-i="fair"></button><button data-m="weighted" data-i="weighted"></button></div>
     <div class="hint"><span id="hint"></span><button class="link" id="eq" data-i="resetW" hidden></button></div>
-    <input type="text" id="add" data-i-ph="addPh">
+    <form class="addrow" id="addForm" autocomplete="off">
+      <input type="text" id="add" data-i-ph="addPh" enterkeyhint="done" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <button type="submit" class="addbtn" id="addBtn" data-i-title="add">＋</button>
+    </form>
     <ul id="list"></ul>
     <div class="opts">
       <label><input type="checkbox" id="rm"><span><span data-i="rm"></span><br><small data-i="rmHint"></small></span></label>
@@ -143,7 +179,7 @@ const I18N = {
     lookTitle: "設定", idle: "點轉盤或按「開始」", need2: "至少需要 2 個可用選項", spinning: "轉轉轉…",
     options: "選項", count: (a, n) => `轉盤上 ${a} / 共 ${n}`, fair: "公平", weighted: "自訂機率",
     hintFair: "每個選項的機率相同", hintW: "數字越大，機率越高、扇形越寬", resetW: "重設權重",
-    addPh: "輸入後按 Enter 新增（可貼上多行）", rm: "轉到後從轉盤移除", rmHint: "只是暫時取消勾選，不會刪除選項",
+    add: "新增", addPh: "輸入選項，按 Enter 或 ＋ 新增（可貼上多行）", rm: "轉到後從轉盤移除", rmHint: "只是暫時取消勾選，不會刪除選項",
     skip: "跳過動畫", sound: "轉動音效", volume: "音量", mute: "靜音", unmute: "取消靜音", restore: "全部恢復", restoreTitle: "把所有選項重新放回轉盤", spin: "開始",
     dTitle: "設定", closeTitle: "關閉（Esc）", screen: "畫面", auto: "🖥️ 跟隨系統", light: "☀️ 日間", dark: "🌙 夜間",
     wheelColors: "轉盤配色", pal_vivid: "繽紛", pal_pastel: "粉彩", pal_ocean: "海洋", pal_sunset: "日落", pal_forest: "森林", custom: "自訂",
@@ -154,7 +190,7 @@ const I18N = {
     lookTitle: "Settings", idle: "Click the wheel or press “Spin”", need2: "At least 2 active options are needed", spinning: "Spinning…",
     options: "Options", count: (a, n) => `${a} on wheel / ${n} total`, fair: "Fair", weighted: "Custom odds",
     hintFair: "Every option has the same chance", hintW: "Higher number = higher chance and a wider slice", resetW: "Reset weights",
-    addPh: "Type and press Enter to add (paste multiple lines OK)", rm: "Remove from wheel after landing", rmHint: "Only unchecks it; the option isn’t deleted",
+    add: "Add", addPh: "Type an option, press Enter or + to add (paste multiple lines OK)", rm: "Remove from wheel after landing", rmHint: "Only unchecks it; the option isn’t deleted",
     skip: "Skip animation", sound: "Spin sound", volume: "Volume", mute: "Mute", unmute: "Unmute", restore: "Restore all", restoreTitle: "Put all options back on the wheel", spin: "Spin",
     dTitle: "Settings", closeTitle: "Close (Esc)", screen: "Display", auto: "🖥️ System", light: "☀️ Light", dark: "🌙 Dark",
     wheelColors: "Wheel colors", pal_vivid: "Vivid", pal_pastel: "Pastel", pal_ocean: "Ocean", pal_sunset: "Sunset", pal_forest: "Forest", custom: "Custom",
@@ -232,7 +268,12 @@ function addLines(text) {
   items.push(...lines.map(mk)); renderList(); syncWheel();
   $("#list").scrollTop = 1e9;
 }
-$("#add").addEventListener("keydown", e => { if (e.key === "Enter") { addLines(e.target.value); e.target.value = ""; } });
+$("#addForm").addEventListener("submit", e => {  // 取代原本偵測 Enter 鍵的寫法：手機的虛擬鍵盤與輸入法不一定送出 Enter 按鍵事件，但一定會觸發表單送出
+  e.preventDefault();
+  const inp = $("#add");
+  if (spinning) return;
+  addLines(inp.value); inp.value = ""; inp.focus();   // 輸入法選字時按 Enter 不會誤送出；送出後保持focus，可連續輸入
+});
 $("#add").addEventListener("paste", e => {
   const t = (e.clipboardData || window.clipboardData).getData("text");
   if (/\r?\n/.test(t.trim())) { e.preventDefault(); addLines(t); }
@@ -291,7 +332,7 @@ function draw() {            // 靜止時：向量重畫，文字最清晰
 }
 
 /* ---------- 轉動 ---------- */
-function lock(on) { spinning = on; $("#spin").disabled = on; $("#list").classList.toggle("locked", on); $("#add").disabled = on; $("#look").classList.toggle("locked", on); $("#mode").classList.toggle("locked", on); }
+function lock(on) { spinning = on; $("#spin").disabled = on; $("#list").classList.toggle("locked", on); $("#add").disabled = on; $("#addBtn").disabled = on; $("#look").classList.toggle("locked", on); $("#mode").classList.toggle("locked", on); }
 
 /* ---------- 音效（用瀏覽器內建的 Web Audio 合成，不需音檔） ---------- */
 let actx = null, master = null, muted = false, volume = 70;
